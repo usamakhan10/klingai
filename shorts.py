@@ -1,6 +1,7 @@
 import requests
 import os
 import time
+from tqdm import tqdm   
 
 # Define the URL
 start_url = "https://www.klingai.com/api/skit"
@@ -56,30 +57,38 @@ def get_videos(page_num=1, page_size=20):
         print(f"Request failed with status code {response.status_code}: {response.text}")
         return []
 
-import requests
-import os
 
 def download_video(url, title):
     # Clean the title to make it a valid filename
     valid_title = "".join(c for c in title if c.isalnum() or c in (" ", "_", "-")).strip()
     if len(valid_title) > 100:
-        valid_title = valid_title[:100]+"..."
+        valid_title = valid_title[:100] + "..."
     filename = f"{valid_title}.mp4"
 
     os.makedirs("videos", exist_ok=True)
-    # Send a GET request to the video URL
     try:
         print(f"Downloading video: {valid_title}")
+        # Send a GET request to the video URL
         response = requests.get(url, stream=True)
-
         
         # Check if the request was successful
         if response.status_code == 200:
-            # Save the video file
-            with open(f"videos/{filename}", "wb") as video_file:
-                for chunk in response.iter_content(chunk_size=1024):
+            # Get the total file size from headers
+            total_size = int(response.headers.get("content-length", 0))
+            chunk_size = 1024
+
+            # Save the video file with tqdm progress bar
+            with open(f"shorts/{filename}", "wb") as video_file, tqdm(
+                desc=f"Downloading {valid_title}",
+                total=total_size,
+                unit="B",
+                unit_scale=True,
+                unit_divisor=1024,
+            ) as progress_bar:
+                for chunk in response.iter_content(chunk_size=chunk_size):
                     if chunk:
                         video_file.write(chunk)
+                        progress_bar.update(len(chunk))
         else:
             print(f"Failed to download video. HTTP Status Code: {response.status_code}")
     except Exception as e:
@@ -99,7 +108,7 @@ def main():
         page_num += 1
     print(f"Found {len(videos)} videos")
     for vid_num,video in enumerate(videos,start=1):
-        download_video(video["url"], video["title"])
+        download_video(video[0], video[1])
         print(f"Downloaded {vid_num}/{len(videos)} videos")
     print(f"Downloaded {len(videos)} videos")
 if __name__ == "__main__":
